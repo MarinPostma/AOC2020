@@ -1,10 +1,10 @@
-
+use rdxsort::*;
+use voracious_radix_sort::{RadixSort};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use vec_map::VecMap;
 
-fn find_pair(vals: &[usize]) -> Option<(usize, usize)> {
-    let mut vals = Vec::from(vals);
+fn find_pair(vals: &mut [usize]) -> Option<(usize, usize)> {
     vals.sort();
     let mut first = 0;
     let mut second = vals.len() - 1;
@@ -23,8 +23,7 @@ fn find_pair(vals: &[usize]) -> Option<(usize, usize)> {
     None
 }
 
-fn find_pair_unstable(vals: &[usize]) -> Option<(usize, usize)> {
-    let mut vals = Vec::from(vals);
+fn find_pair_unstable(vals: &mut [usize]) -> Option<(usize, usize)> {
     vals.sort_unstable();
     let mut first = 0;
     let mut second = vals.len() - 1;
@@ -43,11 +42,49 @@ fn find_pair_unstable(vals: &[usize]) -> Option<(usize, usize)> {
     None
 }
 
-fn find_pair_hashset(vals: &[usize]) -> Option<(usize, usize)> {
-    let set = vals.iter().collect::<HashSet<_>>();
+fn find_pair_rdx(vals: &mut [usize]) -> Option<(usize, usize)> {
+    vals.rdxsort();
+    let mut first = 0;
+    let mut second = vals.len() - 1;
+    while first <= second {
+        let sum = vals[first] + vals[second];
+        match 2020.cmp(&sum) {
+            Ordering::Less => {
+                second -= 1;
+            }
+            Ordering::Equal => return Some((vals[first], vals[second])),
+            Ordering::Greater => {
+                first += 1;
+            }
+        }
+    }
+    None
+}
+
+fn find_pair_voracious(vals: &mut [usize]) -> Option<(usize, usize)> {
+    vals.voracious_sort();
+    let mut first = 0;
+    let mut second = vals.len() - 1;
+    while first <= second {
+        let sum = vals[first] + vals[second];
+        match 2020.cmp(&sum) {
+            Ordering::Less => {
+                second -= 1;
+            }
+            Ordering::Equal => return Some((vals[first], vals[second])),
+            Ordering::Greater => {
+                first += 1;
+            }
+        }
+    }
+    None
+}
+
+fn find_pair_hashset(vals: &mut [usize]) -> Option<(usize, usize)> {
+    let set = vals.iter().cloned().collect::<HashSet<_>>();
     for v in vals {
-        if set.contains(&(2020 - v)) {
-            return Some((*v, 2020 - v))
+        if set.contains(&(2020 - *v)) {
+            return Some((*v, 2020 - *v))
         }
     }
     None
@@ -72,8 +109,24 @@ fn find_pair_bruteforce(vals: &[usize]) -> Option<(usize, usize)> {
     None
 }
 
-fn part_two(vals: &[usize]) -> Option<(usize, usize, usize)> {
-    let mut vals = Vec::from(vals);
+fn find_pair_bruteforce_sorted(vals: &mut [usize]) -> Option<(usize, usize)> {
+    vals.sort_unstable();
+    for first in 0..vals.len() {
+        let first_val = vals[first];
+        'second: for second in first + 1..vals.len() {
+            let second_val = vals[second];
+            let sum = first_val + second_val;
+            if sum > 2020 {
+                break 'second;
+            } else if sum == 2020 {
+                return Some((first_val, second_val));
+            }
+        }
+    }
+    None
+}
+
+fn part_two(vals: &mut [usize]) -> Option<(usize, usize, usize)> {
     vals.sort_unstable();
     for first in 0..vals.len() {
         let first_val = vals[first];
@@ -102,19 +155,16 @@ mod test {
 
     #[test]
     fn test_sort() {
-        assert_eq!(find_pair(INPUT), Some((485, 1535)));
+        let mut input = Vec::from(INPUT);
+        assert_eq!(find_pair(&mut input), Some((485, 1535)));
     }
 
     macro_rules! make_bench {
         ($fn_name:ident, $name:ident) => {
             #[bench]
             fn $name(b: &mut Bencher) {
-                use rand::seq::SliceRandom;
-                use rand::thread_rng;
-                let mut vals = Vec::from(INPUT);
-                let mut rng = thread_rng();
-                vals.shuffle(&mut rng);
-                b.iter(|| $fn_name(INPUT));
+                let mut input = Vec::from(INPUT);
+                b.iter(|| $fn_name(&mut input));
             }
         };
     }
@@ -124,24 +174,43 @@ mod test {
     make_bench!(find_pair_hashset, bench_hashset);
     make_bench!(find_pair, bench_sort);
     make_bench!(find_pair_unstable, bench_sort_unstable);
+    make_bench!(find_pair_rdx, bench_sort_rdx);
+    make_bench!(find_pair_voracious, bench_sort_voracious);
+    make_bench!(part_two, bench_part_two);
+    make_bench!(find_pair_bruteforce_sorted, bench_part_bruteforce_sorted);
+
+    //test day_1::test::bench_bruteforce             ... bench:       5,849 ns/iter (+/- 123)
+    //test day_1::test::bench_hashset                ... bench:       5,082 ns/iter (+/- 739)
+    //test day_1::test::bench_part_bruteforce_sorted ... bench:         370 ns/iter (+/- 0)
+    //test day_1::test::bench_part_two               ... bench:         154 ns/iter (+/- 1)
+    //test day_1::test::bench_sort                   ... bench:         362 ns/iter (+/- 12)
+    //test day_1::test::bench_sort_rdx               ... bench:       8,744 ns/iter (+/- 293)
+    //test day_1::test::bench_sort_unstable          ... bench:         311 ns/iter (+/- 10)
+    //test day_1::test::bench_sort_voracious         ... bench:         313 ns/iter (+/- 126)
+    //test day_1::test::bench_vecmap                 ... bench:         527 ns/iter (+/- 18)
+
 
     #[test]
     fn test_bruteforce() {
-        assert_eq!(find_pair_bruteforce(INPUT), Some((1535, 485)));
+        let mut input = Vec::from(INPUT);
+        assert_eq!(find_pair_bruteforce(&mut input), Some((1535, 485)));
     }
 
     #[test]
     fn test_hashset() {
-        assert_eq!(find_pair_hashset(INPUT), Some((1535, 485)));
+        let mut input = Vec::from(INPUT);
+        assert_eq!(find_pair_hashset(&mut input), Some((1535, 485)));
     }
 
     #[test]
     fn test_vecmap() {
-        assert_eq!(find_pair_vecmap(INPUT), Some((1535, 485)));
+        let mut input = Vec::from(INPUT);
+        assert_eq!(find_pair_vecmap(&mut input), Some((1535, 485)));
     }
 
     #[test]
     fn test_part2() {
-        assert_eq!(part_two(INPUT), Some((167, 265, 1588)));
+        let mut input = Vec::from(INPUT);
+        assert_eq!(part_two(&mut input), Some((167, 265, 1588)));
     }
 }
