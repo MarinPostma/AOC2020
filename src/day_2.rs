@@ -32,7 +32,7 @@ fn day2_part2(input: &str) -> usize{
                 let mut chars = captures[4].chars();
                 let ok_first = chars.nth(first - 1).map(|c| c  == rule).unwrap_or(false);
                 let ok_second = chars.nth(second - first - 1).map(|c| c == rule).unwrap_or(false);
-                (ok_second || ok_first) && !(ok_first && ok_second)
+                ok_second ^ ok_first
             } else {
                 false
             }
