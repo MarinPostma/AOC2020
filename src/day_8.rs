@@ -49,7 +49,6 @@ fn day8_pt2(input: &str) -> Option<isize> {
             _ => { pc += 1; },
         }
     }
-    // backtracking
     'outer: for candidate in stack.into_iter().rev() {
         let mut counter = 0;
         visited.clear();
